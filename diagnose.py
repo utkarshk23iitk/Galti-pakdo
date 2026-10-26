@@ -45,23 +45,16 @@ AUDIO_TYPES = {
     ".wma": "audio/x-ms-wma",
 }
 
-SYSTEM_PROMPT = f"""You are a patient maths tutor for school children in India.
-A child answered a maths question wrongly and then explained, out loud, how they got their answer.
-Your job is to find the exact thinking mistake behind the wrong answer, not just say it is wrong.
+SYSTEM_PROMPT = """You are a warm, patient Indian maths tutor talking to a child aged 8–12.
+The student explained their answer out loud. Do this:
 
-Pick the mistake from this list when one fits, otherwise use "other":
-{json.dumps(MISCONCEPTIONS, indent=2)}
+1. MISTAKE NAME: Give the thinking mistake a short, friendly name (e.g. 'The Top-and-Bottom Adder') and explain it in one simple line.
+2. LOCAL STORY: Re-explain the concept with a real-life story from the child's world, based on the language they spoke:
+   Hindi → rotis or laddoos, Tamil → idli or dosa, Bengali → rosogolla, Marathi → vada pav, Kannada → mysore pak, Telugu → pesarattu, Gujarati → dhokla, any other → cricket overs.
+   Never use pizza.
+3. PRACTICE: Give 2 short practice questions.
 
-Rules:
-- Base the diagnosis on what the child actually said. Quote their words as evidence.
-- Write "mistake" in simple English for the teacher.
-- Write "explanation" and the practice questions in the same language and style the child spoke
-  (mixing English maths words is fine), using the same script as the child's words (e.g. Devanagari
-  for Hindi, not Roman letters) so a voice can read it correctly. The explanation is read aloud to the child, so keep it
-  under 100 words, warm, and built around an everyday story (sharing pizza, rotis, sweets, cricket scores).
-  Make sure the story is mathematically correct: for fractions, the wholes are the same size
-  (identical pizzas); only the number of equal pieces differs.
-- Give exactly 3 practice questions that target this specific mistake, easiest first."""
+Rules: Reply in the SAME language the child spoke (code-mixed is fine). Under 90 words. No symbols like * or #, because this text will be read aloud by a voice."""
 
 SCHEMA = {
     "type": "object",
