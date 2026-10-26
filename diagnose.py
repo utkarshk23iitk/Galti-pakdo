@@ -36,6 +36,15 @@ MISCONCEPTIONS = {
 TTS_LANGUAGES = {"bn-IN", "en-IN", "gu-IN", "hi-IN", "kn-IN", "ml-IN", "mr-IN", "od-IN", "pa-IN", "ta-IN", "te-IN"}
 KID_VOICES = {"hi-IN": "ritu_hi_kids", "en-IN": "nupur_en_kids"}
 
+# Speech-to-Text content types by file extension (anything else is sent as
+# application/octet-stream and Sarvam detects the codec itself).
+AUDIO_TYPES = {
+    ".mp3": "audio/mpeg", ".wav": "audio/wav", ".m4a": "audio/x-m4a", ".mp4": "audio/mp4",
+    ".aac": "audio/aac", ".ogg": "audio/ogg", ".opus": "audio/opus", ".webm": "audio/webm",
+    ".flac": "audio/flac", ".aiff": "audio/aiff", ".aif": "audio/aiff", ".amr": "audio/amr",
+    ".wma": "audio/x-ms-wma",
+}
+
 SYSTEM_PROMPT = f"""You are a patient maths tutor for school children in India.
 A child answered a maths question wrongly and then explained, out loud, how they got their answer.
 Your job is to find the exact thinking mistake behind the wrong answer, not just say it is wrong.
@@ -47,8 +56,11 @@ Rules:
 - Base the diagnosis on what the child actually said. Quote their words as evidence.
 - Write "mistake" in simple English for the teacher.
 - Write "explanation" and the practice questions in the same language and style the child spoke
-  (mixing English maths words is fine). The explanation is read aloud to the child, so keep it
+  (mixing English maths words is fine), using the same script as the child's words (e.g. Devanagari
+  for Hindi, not Roman letters) so a voice can read it correctly. The explanation is read aloud to the child, so keep it
   under 100 words, warm, and built around an everyday story (sharing pizza, rotis, sweets, cricket scores).
+  Make sure the story is mathematically correct: for fractions, the wholes are the same size
+  (identical pizzas); only the number of equal pieces differs.
 - Give exactly 3 practice questions that target this specific mistake, easiest first."""
 
 SCHEMA = {
@@ -94,36 +106,51 @@ def make_client():
     return SarvamAI(api_subscription_key=api_key)
 
 
-def transcribe(client, audio):
-    """audio is an open file or a (filename, bytes, content_type) tuple."""
-    result = client.speech_to_text.transcribe(file=audio, model="saaras:v3", mode="codemix")
+def transcribe(client, filename, data):
+    """Transcribe audio bytes. The content type comes from the file extension,
+    because Python's own guess (e.g. audio/mp4a-latm for .m4a) is rejected by Sarvam."""
+    content_type = AUDIO_TYPES.get(Path(filename).suffix.lower(), "application/octet-stream")
+    result = client.speech_to_text.transcribe(
+        file=(filename, data, content_type), model="saaras:v3", mode="codemix"
+    )
     # Fall back to Hindi if the language could not be detected
     return result.transcript, result.language_code or "hi-IN"
 
 
 def diagnose(client, question, answer, transcript, language):
-    response = client.chat.completions(
-        model="sarvam-105b",
-        reasoning_effort="high",
-        max_tokens=8192,  # reasoning tokens count toward this limit
-        response_format={
-            "type": "json_schema",
-            "json_schema": {"name": "diagnosis", "schema": SCHEMA, "strict": True},
+    messages = [
+        {
+            "role": "system",
+            "content": SYSTEM_PROMPT + "\n\nReply with only a JSON object matching this JSON Schema:\n" + json.dumps(SCHEMA),
         },
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": f"Question: {question}\n"
-                f"Child's answer: {answer}\n"
-                f"Child's explanation (spoken, language {language}): {transcript}",
-            },
-        ],
-    )
-    content = response.choices[0].message.content
-    if not content:
-        raise RuntimeError("The model returned no answer (it may have run out of tokens while reasoning).")
-    return json.loads(content)
+        {
+            "role": "user",
+            "content": f"Question: {question}\n"
+            f"Child's answer: {answer}\n"
+            f"Child's explanation (spoken, language {language}): {transcript}",
+        },
+    ]
+    # Tested on real calls: strict json_schema output sometimes loops on blank lines
+    # until max_tokens, and reasoning (even "low") can spend every token thinking.
+    # A plain JSON object with reasoning off answered correctly in ~3 s, so use that
+    # and retry once if a reply still comes back unusable.
+    for _ in range(2):
+        response = client.chat.completions(
+            model="sarvam-105b",
+            reasoning_effort=None,
+            max_tokens=2000,
+            response_format={"type": "json_object"},
+            messages=messages,
+        )
+        try:
+            result = json.loads(response.choices[0].message.content or "")
+        except json.JSONDecodeError:
+            continue
+        if all(key in result for key in SCHEMA["required"]):
+            # The model sometimes wraps the quote in its own quotation marks
+            result["evidence"] = result["evidence"].strip().strip("\"'“”")
+            return result
+    raise RuntimeError("The model's reply couldn't be read, even after a retry. Please try again.")
 
 
 def speak(client, text, language):
@@ -151,8 +178,8 @@ def main():
 
     client = make_client()
 
-    with open(args.audio, "rb") as audio:
-        transcript, language = transcribe(client, audio)
+    audio = Path(args.audio)
+    transcript, language = transcribe(client, audio.name, audio.read_bytes())
     print(f"Child said ({language}): {transcript}\n")
 
     try:

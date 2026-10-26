@@ -218,7 +218,7 @@ const LANGUAGES = {
   "te-IN": "Telugu", "as-IN": "Assamese", "ur-IN": "Urdu", "ne-IN": "Nepali",
 };
 
-let recording = null;  // { blob, filename, mime }
+let recording = null;  // { blob, filename }
 let recorder = null;
 let tickTimer = null;
 
@@ -298,7 +298,7 @@ async function toggleRecording() {
 }
 
 function setRecording(blob, filename) {
-  recording = { blob, filename, mime: (blob.type || "").split(";")[0] };
+  recording = { blob, filename };
   $("preview").src = URL.createObjectURL(blob);
   $("preview").hidden = false;
   $("mic-label").textContent = "Got it! Listen back, or tap to record again";
@@ -361,7 +361,6 @@ async function submit() {
         answer: $("answer").value,
         audio: await blobToBase64(recording.blob),
         filename: recording.filename,
-        mime: recording.mime,
       }),
     });
     const data = await res.json().catch(() => ({ error: `The app server returned an error (${res.status}).` }));

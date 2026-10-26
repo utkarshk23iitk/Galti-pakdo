@@ -37,11 +37,11 @@ def api_error_message(err):
     return f"Sarvam returned an error ({err.status_code}): {detail}"
 
 
-def run_pipeline(client, question, answer, audio):
+def run_pipeline(client, question, answer, filename, audio):
     """Return (http_status, json_body) for one diagnosis request."""
     stage = "listening"
     try:
-        transcript, language = core.transcribe(client, audio)
+        transcript, language = core.transcribe(client, filename, audio)
         if not transcript.strip():
             return 422, {"error": "We couldn't hear anything in the recording. Try again, a little louder.", "stage": stage}
         stage = "thinking"
@@ -83,16 +83,13 @@ class Handler(BaseHTTPRequestHandler):
         try:
             body = json.loads(self.rfile.read(length))
             question, answer = body["question"].strip(), body["answer"].strip()
-            audio = (
-                body.get("filename") or "recording.webm",
-                base64.b64decode(body["audio"]),
-                body.get("mime") or "application/octet-stream",
-            )
+            filename = body.get("filename") or "recording.webm"
+            audio = base64.b64decode(body["audio"])
         except (ValueError, KeyError, AttributeError):
             return self.send_json(400, {"error": "Send the question, the child's answer and a recording."})
-        if not (question and answer and audio[1]):
+        if not (question and answer and audio):
             return self.send_json(400, {"error": "Send the question, the child's answer and a recording."})
-        self.send_json(*run_pipeline(self.client, question, answer, audio))
+        self.send_json(*run_pipeline(self.client, question, answer, filename, audio))
 
     def send_json(self, status, data):
         self.send(status, json.dumps(data, ensure_ascii=False).encode(), "application/json; charset=utf-8")
