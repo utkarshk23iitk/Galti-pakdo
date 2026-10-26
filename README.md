@@ -1,4 +1,4 @@
-# Aawaz se Diagnosis
+# Galti Pakdo!!
 
 A child explains their wrong maths answer out loud, in their own language. Sarvam Speech-to-Text transcribes it, Sarvam-105B names the exact thinking mistake and re-explains it with a local food story, and Bulbul speaks the explanation back.
 

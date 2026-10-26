@@ -1,4 +1,4 @@
-"""Aawaz se Diagnosis prototype.
+"""Galti Pakdo!! prototype.
 
 A child explains their wrong maths answer out loud. This script:
   1. transcribes the recording (Speech-to-Text),

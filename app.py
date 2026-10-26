@@ -1,4 +1,4 @@
-"""Aawaz se Diagnosis web app.
+"""Galti Pakdo!! web app.
 
 Serves index.html and runs the same Sarvam pipeline as diagnose.py
 (Speech-to-Text -> sarvam-105b -> Text-to-Speech) for each recording.
@@ -103,13 +103,13 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run the Aawaz se Diagnosis web app.")
+    parser = argparse.ArgumentParser(description="Run the Galti Pakdo!! web app.")
     parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args()
 
     Handler.client = core.make_client()
     server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
-    print(f"Aawaz se Diagnosis is running at http://localhost:{args.port}  (Ctrl+C to stop)", flush=True)
+    print(f"Galti Pakdo!! is running at http://localhost:{args.port}  (Ctrl+C to stop)", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
