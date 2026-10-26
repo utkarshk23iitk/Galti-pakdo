@@ -32,6 +32,7 @@
   header h1 { margin: 0; font-size: clamp(28px, 6vw, 40px); letter-spacing: -0.02em; }
   header h1 span { color: var(--accent); }
   header p { margin: 8px auto 0; max-width: 520px; color: var(--muted); }
+  header .tagline { margin-top: 10px; color: var(--accent); font-weight: 700; font-size: 15px; }
 
   .card {
     background: var(--card);
@@ -111,7 +112,7 @@
   .confidence.high { background: var(--teal-soft); color: var(--teal); }
   .confidence.medium { background: #fff6db; color: #946200; }
   .confidence.low { background: var(--red-soft); color: var(--red); }
-  .explain { background: var(--teal-soft); border-color: #cbe9e6; }
+  .explain { background: var(--accent-soft); border-color: #ffd9c0; border-left: 5px solid var(--accent); }
   .explain p { white-space: pre-line; font-size: 18px; margin: 0 0 14px; }
   .explain audio { width: 100%; }
   .note { color: var(--muted); font-size: 14px; }
@@ -119,6 +120,11 @@
   .practice li { margin-bottom: 12px; font-size: 17px; }
   .practice details { font-size: 15px; color: var(--muted); }
   .practice summary { cursor: pointer; color: var(--teal); }
+  footer { text-align: center; margin-top: 40px; }
+  footer p { margin: 0 0 10px; color: var(--muted); font-size: 13px; }
+  .badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+  .badge { font-size: 13px; padding: 5px 12px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); }
+  .badge b { color: var(--accent); }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -127,6 +133,7 @@
   <header>
     <h1>Aawaz se <span>Diagnosis</span></h1>
     <p>Tell us, out loud and in your own language, how you got your answer. We'll find where the thinking went off track and explain it again, simply.</p>
+    <p class="tagline">Other apps check answers. We check thinking.</p>
   </header>
 
   <section class="card">
@@ -168,7 +175,7 @@
 
   <section id="results" hidden>
     <div class="card heard">
-      <h2>What we heard</h2>
+      <h2><span class="step">3</span>What we heard</h2>
       <p id="r-transcript"></p>
       <span class="tag" id="r-language"></span>
     </div>
@@ -182,7 +189,7 @@
       </div>
     </div>
     <div class="card explain">
-      <h2>Let's understand it again</h2>
+      <h2><span class="step">4</span>Your tutor says</h2>
       <p id="r-explanation"></p>
       <audio id="r-audio" controls hidden></audio>
       <div class="note" id="r-audio-note" hidden></div>
@@ -193,6 +200,15 @@
     </div>
     <button class="secondary" id="again">Try another question</button>
   </section>
+
+  <footer>
+    <p>Powered by Sarvam AI</p>
+    <div class="badges">
+      <span class="badge"><b>Saaras</b> · listens</span>
+      <span class="badge"><b>Sarvam-105B</b> · thinks</span>
+      <span class="badge"><b>Bulbul</b> · speaks</span>
+    </div>
+  </footer>
 </main>
 
 <script>
@@ -337,13 +353,14 @@ function setBusy(busy) {
   $("busy").hidden = !busy;
   clearInterval(setBusy.timer);
   if (!busy) return updateSubmit();
-  const startedAt = Date.now();
-  const update = () => {
-    const s = Math.round((Date.now() - startedAt) / 1000);
-    $("busy-text").textContent = `Listening to the explanation and finding the mistake... ${s}s`;
-  };
-  update();
-  setBusy.timer = setInterval(update, 1000);
+  const messages = ["Listening to your thinking...", "Finding the mistake...", "Your tutor is getting ready..."];
+  let step = 0;
+  $("busy-text").textContent = messages[0];
+  // Move through the steps, then stay on the last one until the reply arrives
+  setBusy.timer = setInterval(() => {
+    step = Math.min(step + 1, messages.length - 1);
+    $("busy-text").textContent = messages[step];
+  }, 2500);
 }
 
 const STAGES = { listening: "while listening to the recording", thinking: "while finding the mistake" };
