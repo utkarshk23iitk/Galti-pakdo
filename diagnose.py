@@ -86,9 +86,17 @@ def load_env():
                 os.environ.setdefault(key.strip(), value.strip())
 
 
-def transcribe(client, audio_path):
-    with open(audio_path, "rb") as audio:
-        result = client.speech_to_text.transcribe(file=audio, model="saaras:v3", mode="codemix")
+def make_client():
+    load_env()
+    api_key = os.environ.get("SARVAM_API_KEY")
+    if not api_key:
+        sys.exit("SARVAM_API_KEY is not set. Add it to .env.")
+    return SarvamAI(api_subscription_key=api_key)
+
+
+def transcribe(client, audio):
+    """audio is an open file or a (filename, bytes, content_type) tuple."""
+    result = client.speech_to_text.transcribe(file=audio, model="saaras:v3", mode="codemix")
     # Fall back to Hindi if the language could not be detected
     return result.transcript, result.language_code or "hi-IN"
 
@@ -114,11 +122,12 @@ def diagnose(client, question, answer, transcript, language):
     )
     content = response.choices[0].message.content
     if not content:
-        sys.exit("The model returned no answer (it may have run out of tokens while reasoning).")
+        raise RuntimeError("The model returned no answer (it may have run out of tokens while reasoning).")
     return json.loads(content)
 
 
-def speak(client, text, language, out_path):
+def speak(client, text, language):
+    """Return the spoken explanation as MP3 bytes."""
     voice = KID_VOICES.get(language)
     model, speaker = ("bulbul:v4-flash", voice) if voice else ("bulbul:v3", "ritu")
     result = client.text_to_speech.convert(
@@ -129,7 +138,7 @@ def speak(client, text, language, out_path):
         pace=0.9,  # a little slower for children
         output_audio_codec="mp3",
     )
-    Path(out_path).write_bytes(base64.b64decode(result.audios[0]))
+    return base64.b64decode(result.audios[0])
 
 
 def main():
@@ -140,16 +149,16 @@ def main():
     parser.add_argument("--out", default="reply.mp3", help="Where to save the spoken explanation")
     args = parser.parse_args()
 
-    load_env()
-    api_key = os.environ.get("SARVAM_API_KEY")
-    if not api_key:
-        sys.exit("SARVAM_API_KEY is not set. Add it to .env.")
-    client = SarvamAI(api_subscription_key=api_key)
+    client = make_client()
 
-    transcript, language = transcribe(client, args.audio)
+    with open(args.audio, "rb") as audio:
+        transcript, language = transcribe(client, audio)
     print(f"Child said ({language}): {transcript}\n")
 
-    result = diagnose(client, args.question, args.answer, transcript, language)
+    try:
+        result = diagnose(client, args.question, args.answer, transcript, language)
+    except RuntimeError as err:
+        sys.exit(str(err))
     print(f"Correct answer: {result['correct_answer']}")
     print(f"Mistake:        {result['mistake']} [{result['mistake_id']}, {result['confidence']} confidence]")
     print(f"Evidence:       \"{result['evidence']}\"\n")
@@ -159,7 +168,7 @@ def main():
         print(f"  {i}. {q['question']}  (answer: {q['answer']})")
 
     if language in TTS_LANGUAGES:
-        speak(client, result["explanation"], language, args.out)
+        Path(args.out).write_bytes(speak(client, result["explanation"], language))
         print(f"\nSpoken explanation saved to {args.out}")
     else:
         print(f"\nNo voice available for {language}, so the explanation is text only.")

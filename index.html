@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aawaz se Diagnosis</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #fff8ef;
+    --card: #ffffff;
+    --ink: #2b2118;
+    --muted: #7a6a5c;
+    --line: #f0e2d2;
+    --accent: #e8590c;
+    --accent-soft: #fff0e5;
+    --teal: #0b7a75;
+    --teal-soft: #e6f5f4;
+    --red: #c92a2a;
+    --red-soft: #fff1f1;
+    --radius: 18px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", "Noto Sans", "Noto Sans Devanagari", sans-serif;
+  }
+  main { max-width: 720px; margin: 0 auto; padding: 32px 16px 64px; }
+  header { text-align: center; margin-bottom: 28px; }
+  header h1 { margin: 0; font-size: clamp(28px, 6vw, 40px); letter-spacing: -0.02em; }
+  header h1 span { color: var(--accent); }
+  header p { margin: 8px auto 0; max-width: 520px; color: var(--muted); }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 22px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 2px rgba(43, 33, 24, 0.04);
+  }
+  .card h2 { margin: 0 0 14px; font-size: 18px; }
+  .step { display: inline-grid; place-items: center; width: 26px; height: 26px; margin-right: 8px;
+          border-radius: 50%; background: var(--accent); color: #fff; font-size: 14px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .chip-btn {
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+    padding: 6px 12px; border-radius: 999px; font: inherit; font-size: 14px; cursor: pointer;
+  }
+  .chip-btn:hover, .chip-btn.active { border-color: var(--accent); background: var(--accent-soft); }
+  label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .fields { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+  @media (max-width: 520px) { .fields { grid-template-columns: 1fr; } }
+  input[type="text"] {
+    width: 100%; padding: 12px 14px; font: inherit; font-size: 17px;
+    border: 1px solid var(--line); border-radius: 12px; background: #fffdfa; color: var(--ink);
+  }
+  input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+
+  .hint { background: var(--accent-soft); border-radius: 12px; padding: 10px 14px; font-size: 15px; margin-bottom: 18px; }
+  .hint b { color: var(--accent); }
+  .recorder { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+  .mic {
+    width: 96px; height: 96px; border-radius: 50%; border: none; cursor: pointer;
+    background: var(--accent); color: #fff; display: grid; place-items: center;
+    box-shadow: 0 6px 18px rgba(232, 89, 12, 0.35); transition: transform 0.15s;
+  }
+  .mic:hover { transform: scale(1.04); }
+  .mic svg { width: 40px; height: 40px; }
+  .mic.recording { background: var(--red); animation: pulse 1.4s infinite; }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(201, 42, 42, 0.45); }
+    70% { box-shadow: 0 0 0 18px rgba(201, 42, 42, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(201, 42, 42, 0); }
+  }
+  .mic-label { font-weight: 600; }
+  .timer { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; }
+  .preview { width: 100%; max-width: 420px; }
+  .link-btn { background: none; border: none; color: var(--teal); font: inherit; font-size: 14px; cursor: pointer; text-decoration: underline; padding: 0; }
+
+  .primary {
+    width: 100%; padding: 16px; border: none; border-radius: 14px; cursor: pointer;
+    background: var(--teal); color: #fff; font: inherit; font-size: 18px; font-weight: 700;
+  }
+  .primary:disabled { background: #b9cfcd; cursor: not-allowed; }
+  .secondary {
+    width: 100%; padding: 14px; border-radius: 14px; cursor: pointer; font: inherit; font-weight: 600;
+    background: transparent; border: 2px solid var(--teal); color: var(--teal);
+  }
+  .busy { display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--muted); margin-top: 14px; }
+  .spinner { width: 18px; height: 18px; border: 3px solid var(--line); border-top-color: var(--teal);
+             border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error { background: var(--red-soft); color: var(--red); border: 1px solid #ffd2d2; border-radius: 12px;
+           padding: 12px 14px; margin-top: 14px; }
+
+  #results { margin-top: 28px; }
+  .heard p { margin: 0; font-size: 17px; }
+  .tag { display: inline-block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+         padding: 3px 10px; border-radius: 999px; background: var(--bg); color: var(--muted); margin-top: 10px; }
+  .diagnosis { border: 2px solid var(--accent); }
+  .diagnosis .mistake { font-size: 20px; font-weight: 700; margin: 0 0 12px; }
+  blockquote { margin: 0 0 14px; padding: 10px 14px; border-left: 4px solid var(--accent); background: var(--accent-soft);
+               border-radius: 0 10px 10px 0; font-style: italic; }
+  .meta { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 15px; }
+  .confidence { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; text-transform: uppercase; }
+  .confidence.high { background: var(--teal-soft); color: var(--teal); }
+  .confidence.medium { background: #fff6db; color: #946200; }
+  .confidence.low { background: var(--red-soft); color: var(--red); }
+  .explain { background: var(--teal-soft); border-color: #cbe9e6; }
+  .explain p { white-space: pre-line; font-size: 18px; margin: 0 0 14px; }
+  .explain audio { width: 100%; }
+  .note { color: var(--muted); font-size: 14px; }
+  .practice ol { margin: 0; padding-left: 22px; }
+  .practice li { margin-bottom: 12px; font-size: 17px; }
+  .practice details { font-size: 15px; color: var(--muted); }
+  .practice summary { cursor: pointer; color: var(--teal); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Aawaz se <span>Diagnosis</span></h1>
+    <p>Tell us, out loud and in your own language, how you got your answer. We'll find where the thinking went off track and explain it again, simply.</p>
+  </header>
+
+  <section class="card">
+    <h2><span class="step">1</span>The question</h2>
+    <div class="chips" id="examples"></div>
+    <div class="fields">
+      <div>
+        <label for="question">Maths question</label>
+        <input type="text" id="question" placeholder="e.g. 1/2 + 1/3 = ?" autocomplete="off">
+      </div>
+      <div>
+        <label for="answer">Child's answer</label>
+        <input type="text" id="answer" placeholder="e.g. 2/5" autocomplete="off">
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">2</span>Explain how you got it</h2>
+    <div class="hint" id="hint" hidden><b>Try saying:</b> <span id="hint-text"></span></div>
+    <div class="recorder">
+      <button class="mic" id="mic" aria-label="Start recording">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="2" width="6" height="12" rx="3"></rect>
+          <path d="M5 10a7 7 0 0 0 14 0"></path><line x1="12" y1="17" x2="12" y2="22"></line>
+        </svg>
+      </button>
+      <div class="mic-label" id="mic-label">Tap to record (up to 30 seconds)</div>
+      <div class="timer" id="timer" hidden>0:00 / 0:30</div>
+      <audio class="preview" id="preview" controls hidden></audio>
+      <button class="link-btn" id="upload-btn">or upload a recording</button>
+      <input type="file" id="upload" accept="audio/*" hidden>
+    </div>
+  </section>
+
+  <button class="primary" id="submit" disabled>Find the mistake</button>
+  <div class="busy" id="busy" hidden><div class="spinner"></div><span id="busy-text"></span></div>
+  <div class="error" id="error" hidden></div>
+
+  <section id="results" hidden>
+    <div class="card heard">
+      <h2>What we heard</h2>
+      <p id="r-transcript"></p>
+      <span class="tag" id="r-language"></span>
+    </div>
+    <div class="card diagnosis">
+      <h2>The real mistake</h2>
+      <p class="mistake" id="r-mistake"></p>
+      <blockquote id="r-evidence"></blockquote>
+      <div class="meta">
+        <span>Correct answer: <b id="r-correct"></b></span>
+        <span class="confidence" id="r-confidence"></span>
+      </div>
+    </div>
+    <div class="card explain">
+      <h2>Let's understand it again</h2>
+      <p id="r-explanation"></p>
+      <audio id="r-audio" controls hidden></audio>
+      <div class="note" id="r-audio-note" hidden></div>
+    </div>
+    <div class="card practice">
+      <h2>Practice time</h2>
+      <ol id="r-practice"></ol>
+    </div>
+    <button class="secondary" id="again">Try another question</button>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const MAX_SECONDS = 30;
+
+const EXAMPLES = [
+  { label: "Fractions", q: "1/2 + 1/3 = ?", a: "2/5",
+    say: "Maine upar wale numbers add kiye, 1 plus 1 = 2, aur neeche wale 2 plus 3 = 5. To answer 2/5." },
+  { label: "Subtraction", q: "52 - 38 = ?", a: "26",
+    say: "2 mein se 8 nahi ghatta, to maine 8 mein se 2 ghata diya, 6 aaya. Phir 5 mein se 3, to 2. Answer 26." },
+  { label: "Carrying", q: "47 + 38 = ?", a: "75",
+    say: "7 plus 8 = 15, maine 5 likha. Phir 4 plus 3 = 7. To 75." },
+  { label: "Decimals", q: "Which is bigger: 0.25 or 0.5?", a: "0.25",
+    say: "25 bada hai 5 se, isliye 0.25 bada hai." },
+  { label: "Order of operations", q: "3 + 4 × 2 = ?", a: "14",
+    say: "Pehle 3 plus 4 = 7, phir 7 into 2 = 14." },
+];
+
+const LANGUAGES = {
+  "hi-IN": "Hindi", "en-IN": "English", "bn-IN": "Bengali", "gu-IN": "Gujarati", "kn-IN": "Kannada",
+  "ml-IN": "Malayalam", "mr-IN": "Marathi", "od-IN": "Odia", "pa-IN": "Punjabi", "ta-IN": "Tamil",
+  "te-IN": "Telugu", "as-IN": "Assamese", "ur-IN": "Urdu", "ne-IN": "Nepali",
+};
+
+let recording = null;  // { blob, filename, mime }
+let recorder = null;
+let tickTimer = null;
+
+// ---------- Step 1: question ----------
+for (const ex of EXAMPLES) {
+  const btn = document.createElement("button");
+  btn.className = "chip-btn";
+  btn.textContent = ex.label;
+  btn.onclick = () => {
+    $("question").value = ex.q;
+    $("answer").value = ex.a;
+    $("hint-text").textContent = `"${ex.say}"`;
+    $("hint").hidden = false;
+    document.querySelectorAll(".chip-btn").forEach((b) => b.classList.toggle("active", b === btn));
+    updateSubmit();
+  };
+  $("examples").append(btn);
+}
+$("question").oninput = $("answer").oninput = updateSubmit;
+
+// ---------- Step 2: recording ----------
+function extensionFor(type) {
+  if (type.includes("mp4") || type.includes("m4a") || type.includes("aac")) return "m4a";
+  if (type.includes("ogg")) return "ogg";
+  if (type.includes("wav")) return "wav";
+  if (type.includes("mpeg") || type.includes("mp3")) return "mp3";
+  return "webm";
+}
+
+function pickMimeType() {
+  const options = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
+  return options.find((t) => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || "";
+}
+
+function formatTime(seconds) {
+  return `0:${String(Math.floor(seconds)).padStart(2, "0")}`;
+}
+
+async function toggleRecording() {
+  if (recorder && recorder.state === "recording") return recorder.stop();
+  hideError();
+  if (!navigator.mediaDevices || !window.MediaRecorder) {
+    return showError("This browser can't record here. Open the app at http://localhost, or upload a recording instead.");
+  }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    return showError("Microphone access was blocked. Allow the microphone for this page, or upload a recording instead.");
+  }
+  const mimeType = pickMimeType();
+  recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+  const chunks = [];
+  recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+  recorder.onstop = () => {
+    stream.getTracks().forEach((t) => t.stop());
+    clearInterval(tickTimer);
+    $("mic").classList.remove("recording");
+    $("mic").setAttribute("aria-label", "Start recording");
+    $("timer").hidden = true;
+    const type = recorder.mimeType || mimeType || "audio/webm";
+    setRecording(new Blob(chunks, { type }), `recording.${extensionFor(type)}`);
+  };
+
+  recorder.start();
+  const startedAt = Date.now();
+  $("mic").classList.add("recording");
+  $("mic").setAttribute("aria-label", "Stop recording");
+  $("mic-label").textContent = "Listening... tap to stop";
+  $("timer").hidden = false;
+  $("timer").textContent = `0:00 / ${formatTime(MAX_SECONDS)}`;
+  tickTimer = setInterval(() => {
+    const elapsed = (Date.now() - startedAt) / 1000;
+    $("timer").textContent = `${formatTime(Math.min(elapsed, MAX_SECONDS))} / ${formatTime(MAX_SECONDS)}`;
+    if (elapsed >= MAX_SECONDS && recorder.state === "recording") recorder.stop();
+  }, 200);
+}
+
+function setRecording(blob, filename) {
+  recording = { blob, filename, mime: (blob.type || "").split(";")[0] };
+  $("preview").src = URL.createObjectURL(blob);
+  $("preview").hidden = false;
+  $("mic-label").textContent = "Got it! Listen back, or tap to record again";
+  updateSubmit();
+}
+
+$("mic").onclick = toggleRecording;
+$("upload-btn").onclick = () => $("upload").click();
+$("upload").onchange = () => {
+  const file = $("upload").files[0];
+  if (file) setRecording(file, file.name);
+};
+
+// ---------- Step 3: diagnose ----------
+function updateSubmit() {
+  $("submit").disabled = !($("question").value.trim() && $("answer").value.trim() && recording);
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = () => reject(new Error("Couldn't read the recording."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function showError(message) {
+  $("error").textContent = message;
+  $("error").hidden = false;
+}
+function hideError() { $("error").hidden = true; }
+
+function setBusy(busy) {
+  $("submit").disabled = busy;
+  $("busy").hidden = !busy;
+  clearInterval(setBusy.timer);
+  if (!busy) return updateSubmit();
+  const startedAt = Date.now();
+  const update = () => {
+    const s = Math.round((Date.now() - startedAt) / 1000);
+    $("busy-text").textContent = `Listening to the explanation and finding the mistake... ${s}s`;
+  };
+  update();
+  setBusy.timer = setInterval(update, 1000);
+}
+
+const STAGES = { listening: "while listening to the recording", thinking: "while finding the mistake" };
+
+async function submit() {
+  hideError();
+  $("results").hidden = true;
+  setBusy(true);
+  try {
+    const res = await fetch("/api/diagnose", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        question: $("question").value,
+        answer: $("answer").value,
+        audio: await blobToBase64(recording.blob),
+        filename: recording.filename,
+        mime: recording.mime,
+      }),
+    });
+    const data = await res.json().catch(() => ({ error: `The app server returned an error (${res.status}).` }));
+    if (!res.ok) {
+      const where = STAGES[data.stage] ? ` (stopped ${STAGES[data.stage]})` : "";
+      throw new Error(data.error + where);
+    }
+    showResult(data);
+  } catch (err) {
+    showError(err instanceof TypeError ? "Can't reach the app server. Is python3 app.py still running?" : err.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+function showResult(data) {
+  $("r-transcript").textContent = data.transcript;
+  $("r-language").textContent = `Spoken in ${LANGUAGES[data.language] || data.language}`;
+  $("r-mistake").textContent = data.mistake;
+  $("r-evidence").textContent = `"${data.evidence}"`;
+  $("r-correct").textContent = data.correct_answer;
+  $("r-confidence").textContent = `${data.confidence} confidence`;
+  $("r-confidence").className = `confidence ${data.confidence}`;
+  $("r-explanation").textContent = data.explanation;
+
+  const audio = $("r-audio");
+  audio.hidden = !data.audio;
+  if (data.audio) {
+    audio.src = `data:audio/mpeg;base64,${data.audio}`;
+    audio.play().catch(() => {});
+  } else {
+    audio.removeAttribute("src");
+  }
+  $("r-audio-note").textContent = data.audio_note || "";
+  $("r-audio-note").hidden = !data.audio_note;
+
+  const list = $("r-practice");
+  list.replaceChildren();
+  for (const item of data.practice_questions) {
+    const li = document.createElement("li");
+    const details = document.createElement("details");
+    const summary = document.createElement("summary");
+    summary.textContent = "Show answer";
+    details.append(summary, document.createTextNode(item.answer));
+    li.append(document.createTextNode(item.question), details);
+    list.append(li);
+  }
+
+  $("results").hidden = false;
+  $("results").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+$("submit").onclick = submit;
+$("again").onclick = () => {
+  $("r-audio").pause();
+  $("results").hidden = true;
+  recording = null;
+  $("preview").hidden = true;
+  $("upload").value = "";
+  $("question").value = $("answer").value = "";
+  $("hint").hidden = true;
+  $("mic-label").textContent = "Tap to record (up to 30 seconds)";
+  document.querySelectorAll(".chip-btn").forEach((b) => b.classList.remove("active"));
+  updateSubmit();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
+</script>
+</body>
+</html>
